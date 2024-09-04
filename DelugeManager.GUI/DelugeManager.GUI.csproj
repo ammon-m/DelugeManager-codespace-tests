@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <PackageReference Include="Photino.NET" Version="2.6.0" />
+    <PackageReference Include="Semver" Version="2.3.0" />
   </ItemGroup>
 
 </Project>
