@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DelugeManager", "DelugeManager\DelugeManager.csproj", "{9DBB30D2-FCF3-427B-A3C0-A7D9DD5FCFAD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DelugeManager.GUI", "DelugeManager.GUI\DelugeManager.GUI.csproj", "{9F9399F9-AE96-463B-9179-5B89C69AFE40}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9DBB30D2-FCF3-427B-A3C0-A7D9DD5FCFAD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9DBB30D2-FCF3-427B-A3C0-A7D9DD5FCFAD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9DBB30D2-FCF3-427B-A3C0-A7D9DD5FCFAD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9DBB30D2-FCF3-427B-A3C0-A7D9DD5FCFAD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F9399F9-AE96-463B-9179-5B89C69AFE40}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F9399F9-AE96-463B-9179-5B89C69AFE40}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F9399F9-AE96-463B-9179-5B89C69AFE40}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F9399F9-AE96-463B-9179-5B89C69AFE40}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
