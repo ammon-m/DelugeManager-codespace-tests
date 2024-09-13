@@ -11,5 +11,6 @@
         "6080": {
             "label": "desktop"
         }
-    }
+    },
+    "containerEnv": { "DISPLAY": "${localEnv:DISPLAY}" }
 }
