@@ -1,9 +1,10 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace DelugeManager;
 
-public class ThunderstorePackageExperimental
+public static class ThunderstoreApi
 {
     public static JsonSerializerOptions SerializerOptions { get; } = new()
     {
@@ -13,48 +14,74 @@ public class ThunderstorePackageExperimental
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
     };
 
-    public static async Task<PackageVersionExperimental> GetPackageAsync(string packageName, string packageNamespace, string packageVersion = null)
+    public static string PackageProvider { get; set; } = "https://thunderstore.io";
+
+    private static readonly PackageIndex packageIndex = new();
+
+    public static async Task VerifyPackageList()
     {
-        string requestUrl = $"https://thunderstore.io/api/experimental/package/{packageNamespace}/{packageName}";
-        if(packageVersion is not null)
-            requestUrl += $"/{packageVersion}";
+        using var ms = await Program.ReadOrDownloadCache(Path.Combine(Program.CacheFolder, "modlist.json"), "c/riskofrain2/api/v1/package/", $"package list from {PackageProvider}");
 
-        using var client = new HttpClient();
-        using var s = await client.GetStreamAsync(requestUrl);
-        using var ms = new MemoryStream();
-        await s.CopyToAsync(ms);
-
-        var text = Encoding.UTF8.GetString(ms.GetBuffer());
-
-        if(packageVersion is not null)
-            return JsonSerializer.Deserialize<PackageVersionExperimental>(text, SerializerOptions);
-        else
-            return JsonSerializer.Deserialize<ThunderstorePackageExperimental>(text, SerializerOptions).Latest;
+        ms.Position = 0;
+        var packageList = await JsonSerializer.DeserializeAsync<Package[]>(ms, SerializerOptions);
+        if(packageList != null)
+            packageIndex.Packages = packageList;
     }
 
-    public string Namespace { get; set; }
-
-    public string Name { get; set; }
-
-    public PackageVersionExperimental Latest { get; set; }
-
-    public IList<PackageListingExperimental> CommunityListings { get; } = [];
-
-    public class PackageVersionExperimental : RoR2Plugin
+    public static async Task<PackageVersion> GetPackageAsync(string packageName, string packageNamespace, RoR2Version? targetVersion = null, string? packageVersion = null)
     {
-        public string DownloadUrl { get; set; }
+        await VerifyPackageList();
 
-        public ulong Downloads { get; set; }
-    }
+        if(packageIndex.Packages.Length == 0)
+            return null;
 
-    public class PackageListingExperimental
-    {
-        public bool HasNsfwContent { get; set; }
+        var package = packageIndex.Packages.First(p => p.Name == packageName && p.Owner == packageNamespace);
+        if(package == null)
+            return null;
 
-        public IList<string> Categories { get; } = [];
+        if(targetVersion == null)
+        {
+            if(packageVersion == null)
+                return package.Versions[0];
 
-        public string Community { get; set; }
+            return package.Versions.First(v => v.VersionNumber == packageVersion);
+        }
 
-        public string ReviewStatus { get; set; }
+        PackageVersion ver = null;
+        var oldestDate = new DateTimeOffset(targetVersion.Value.Date.Value, TimeOnly.MinValue, TimeSpan.Zero).ToUniversalTime();
+        var newestDate = new DateTimeOffset(RoR2Versions.Versions.GetByID(targetVersion.Value.NextMajorVersion).Date.Value, TimeOnly.MinValue, TimeSpan.Zero).ToUniversalTime();
+
+        int ind = 0;
+        if(packageVersion != null)
+        {
+            for(int i = 0; i < package.Versions.Length; i++)
+            {
+                if(package.Versions[i].VersionNumber == packageVersion)
+                {
+                    ver = package.Versions[i];
+                    ind = i;
+                    break;
+                }
+            }
+        }
+
+        // search for latest version for target game version
+        for(int i = ind; i < package.Versions.Length; i++)
+        {
+            PackageVersion version = package.Versions[i];
+
+            List<string> categories = [..package.Categories];
+
+            if(version.DateCreated.ToUniversalTime() >= oldestDate && version.DateCreated.ToUniversalTime() < newestDate)
+                continue;
+
+            if(categories.Contains("Surivors of the Void") && targetVersion.Value.Date >= RoR2Versions.Versions.GetByID("2024_05_20_Update_Devotion").Date)
+                continue;
+
+            ver = version;
+            break;
+        }
+
+        return ver;
     }
 }

@@ -1,58 +1,90 @@
 using System.IO.Compression;
+using System.Text.Json;
+using Semver;
 
 namespace DelugeManager;
 
 public static class PluginHandler
 {
-    public static async Task InstallPluginToProfile(string profilePath, string name, string author, string version)
+    private static readonly List<string> abnormalFileHandling = [
+        "RiskofThunder-BepInEx_GUI"
+    ];
+
+    private static readonly List<string> resolved = [];
+
+    public static async Task InstallPluginToProfile(string profilePath, string name, string author, string version, RoR2Version? gameVersion = null, bool root = true)
     {
-        string bepInExPath = P(profilePath, "BepInEx");
+        if(root) resolved.Clear();
+
+        Directory.CreateDirectory(P(Program.Folder, "_data", "staging"));
+
+        var package = await ThunderstoreApi.GetPackageAsync(name, author, gameVersion, version);
+        var profile = Program.profiles[profilePath];
+
+        if(root && version != package.VersionNumber)
+        {
+            if(version != null)
+            {
+                if(gameVersion != null)
+                    Console.WriteLine($"Could not resolve version {version} for the specified game version {gameVersion.Value.Identifier}, using nearest version: {package.VersionNumber}");
+                else
+                    Console.WriteLine($"Could not resolve version {version}, using nearest version: {package.VersionNumber}");
+            }
+            version = package.VersionNumber;
+        }
+
+        string fileCombinedNameAndVersion = $"{author}-{name}-{version}";
+
+        if(!root && resolved.Contains(fileCombinedNameAndVersion)) return;
+
+        if(version == profile.Mods.FirstOrDefault(x => x.Namespace == author && x.Name == name)?.VersionNumber)
+        {
+            if(root)
+                Console.WriteLine($"The package {fileCombinedNameAndVersion} is already installed");
+            return;
+        }
+
+        string fullProfilePath = Path.Combine(Program.Folder, "profiles", profilePath);
+        string bepInExPath = P(fullProfilePath, "BepInEx");
         string fileCombinedName = $"{author}-{name}";
 
-        string tempPackagePath = P(Program.Folder, "_data", "staging", fileCombinedName.GetHashCode().ToString());
-        Directory.CreateDirectory(tempPackagePath);
+        string tempPackagePath = P(Program.Folder, "_data", "staging", fileCombinedNameAndVersion);
 
-        Console.WriteLine($"Pulling {author}-{name} package from Thunderstore.io...");
-        var apiResponse = await ThunderstorePackageExperimental.GetPackageAsync(name, author, version);
+        Directory.CreateDirectory(P(Program.CacheFolder, "downloads"));
+        var cachefile = P(Program.CacheFolder, "downloads", fileCombinedNameAndVersion);
 
-        using Stream ms = new MemoryStream();
-
-        var cachefile = P(Program.CacheFolder, fileCombinedName.GetHashCode().ToString());
-        bool cacheAvailable = false;
-        if(Program.ValidateCache(cachefile + ".cache"))
+        if(!Program.ValidateCache(cachefile + ".cache"))
         {
-            cacheAvailable = true;
-            using var s = File.OpenRead(cachefile + ".zip");
-            await s.CopyToAsync(ms);
-        }
-        else
-        {
-            File.Delete(cachefile + ".zip");
-            File.Delete(cachefile + ".cache");
-        }
+            if(File.Exists(cachefile + ".zip"))
+                File.Delete(cachefile + ".zip");
+            if(File.Exists(cachefile + ".cache"))
+                File.Delete(cachefile + ".cache");
 
-        if(!cacheAvailable)
-        {
+            Console.WriteLine($"Downloading package {fileCombinedNameAndVersion} from {ThunderstoreApi.PackageProvider}...");
+
             using var client = new HttpClient();
-            using var s = await client.GetStreamAsync(apiResponse.DownloadUrl);
-            await s.CopyToAsync(ms);
-            await s.CopyToAsync(new FileStream(cachefile + ".zip", FileMode.Create));
+            using var file = File.Open(cachefile + ".zip", FileMode.Create);
+            await (await client.GetStreamAsync(package.DownloadUrl)).CopyToAsync(file);
+            await file.FlushAsync();
+            file.Close();
 
-            File.WriteAllText(cachefile + ".cache", $"{DateTime.UtcNow}:::24");
+            await File.WriteAllTextAsync(cachefile + ".cache", $"{DateTime.UtcNow}:::24");
         }
 
-        ZipFile.ExtractToDirectory(ms, tempPackagePath);
+        Console.WriteLine($"Installing {fileCombinedNameAndVersion}...");
 
-        Console.WriteLine($"Installing {author}-{name}...");
+        ZipFile.ExtractToDirectory(cachefile + ".zip", tempPackagePath);
 
-        string profilePackagePath = P(profilePath, "BepInEx", "plugins", fileCombinedName);
-        string profilePatcherPath = P(profilePath, "BepInEx", "patchers", fileCombinedName);
-        string profileMonomodPath = P(profilePath, "BepInEx", "monomod", fileCombinedName);
-        string profileCorePath    = P(profilePath, "BepInEx", "core", fileCombinedName);
+        string profilePackagePath = P(fullProfilePath, "BepInEx", "plugins", fileCombinedName);
+        string profilePatcherPath = P(fullProfilePath, "BepInEx", "patchers", fileCombinedName);
+        string profileMonomodPath = P(fullProfilePath, "BepInEx", "monomod", fileCombinedName);
+        string profileCorePath    = P(fullProfilePath, "BepInEx", "core", fileCombinedName);
+
+        Directory.CreateDirectory(profilePackagePath);
 
         void copyFileTempToOut(string filename, bool condition = true)
         {
-            if(!condition) return;
+            if(!condition || !File.Exists(P(tempPackagePath, filename))) return;
             File.Copy(P(tempPackagePath, filename), P(profilePackagePath, filename), true);
         }
 
@@ -64,10 +96,13 @@ public static class PluginHandler
             Directory.Delete(P(tempPackagePath, pathFrom), true);
         }
 
-        copyFileTempToOut("manifest.json");
-        copyFileTempToOut("icon.png");
-        copyFileTempToOut("README.md");
-        copyFileTempToOut("CHANGELOG.md", File.Exists(P(tempPackagePath, "CHANGELOG.md")));
+        if(!abnormalFileHandling.Contains(fileCombinedName))
+        {
+            copyFileTempToOut("manifest.json");
+            copyFileTempToOut("icon.png");
+            copyFileTempToOut("README.md");
+            copyFileTempToOut("CHANGELOG.md");
+        }
 
         // we delete these after copying so that the recursive search for dlls goes fine
         copyPathAndDelete("BepInEx", bepInExPath);
@@ -76,15 +111,76 @@ public static class PluginHandler
         copyPathAndDelete("monomod", profileMonomodPath);
         copyPathAndDelete("core", profileCorePath);
 
-        CopyFilesFlattenedWithFilePattern(tempPackagePath, profileMonomodPath, "*.mm.dll", true);
-        CopyFilesFlattenedWithFilePattern(tempPackagePath, profilePackagePath, "*.dll", true);
+        CopyFilesFlattenedWithFilePattern(tempPackagePath, profileMonomodPath, "*.mm.dll", delete: true);
+        CopyFilesFlattenedWithFilePattern(tempPackagePath, profilePackagePath, "*.dll", delete: true);
 
-        Console.WriteLine($"{author}-{name} installed successfully!");
+        profile.Mods.Add(new() {
+            Dependencies = [..package.Dependencies],
+            Description = package.Description,
+            Enabled = true,
+            FullName = package.FullName,
+            Name = package.Name,
+            Namespace = author,
+            VersionNumber = package.VersionNumber,
+            WebsiteURL = package.WebsiteUrl
+        });
+
+        resolved.Add(fileCombinedNameAndVersion);
+
+        await ResolveDependencies(profilePath, package);
+
+        Console.WriteLine($"  {fileCombinedNameAndVersion} installed successfully!");
+
+        Directory.Delete(tempPackagePath, true);
+
+        if(root) resolved.Clear();
+    }
+
+    public static async Task ResolveDependencies(string profilePath, PackageVersion mod)
+    {
+        var profile = Program.profiles[profilePath];
+
+        string item = Path.Combine(Program.Folder, "profiles", profilePath);
+
+        profile.Mods.Clear();
+        Directory.CreateDirectory(Path.Combine(item, "BepInEx", "plugins"));
+        foreach(var fullPath in Directory.EnumerateDirectories(Path.Combine(item, "BepInEx", "plugins")))
+        {
+            if(!Directory.EnumerateFileSystemEntries(fullPath).Any())
+                continue;
+
+            string manifestPath = Path.Combine(fullPath, "manifest.json");
+            if(File.Exists(manifestPath))
+            {
+                profile.Mods.Add(JsonSerializer.Deserialize<RoR2Plugin>(File.ReadAllText(manifestPath), ModProfile.SerializerOptions));
+            }
+        }
+
+        foreach(var requiredMod in mod.Dependencies)
+        {
+            string[] split = requiredMod.Split("-");
+
+            bool exists = requiredMod.StartsWith("bbepis-BepInExPack");
+            foreach(var mod2 in profile.Mods)
+            {
+                if(mod2.FullName == requiredMod)
+                {
+                    exists = true;
+                    break;
+                }
+            }
+            if(!exists)
+            {
+                await InstallPluginToProfile(profilePath, split[1], split[0], split[2], RoR2Versions.Versions.GetByID(profile.GameVersion), false);
+            }
+        }
+
+        await File.WriteAllTextAsync(Path.Combine(Program.Folder, "profiles", profilePath, "profile.json"), JsonSerializer.Serialize(profile, ModProfile.SerializerOptions));
     }
 
     private static string P(params string[] paths) => Path.Combine(paths);
 
-    static void CopyFilesFlattenedWithFilePattern(string sourcePath, string targetPath, string filePattern = "*.*", bool delete = false)
+    private static void CopyFilesFlattenedWithFilePattern(string sourcePath, string targetPath, string filePattern = "*.*", bool delete = false)
     {
         foreach(var file in Directory.GetFiles(sourcePath, filePattern, SearchOption.AllDirectories))
         {

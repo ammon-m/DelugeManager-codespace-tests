@@ -22,24 +22,28 @@ public static class RoR2Versions
 			new(2019, 03, 28),
 			displayName: "Early Access Launch",
 			major: true,
+			nextMajorVersion: "2019_06_25_EarlyAccess_ContentUpdate_ScorchedAcres",
 			bepInExVersion: "2.0.0"
 		),
 		new(
 			"2019_04_03_EarlyAccess_Patch",	
 			5182444948675866264,
 			new(2019, 04, 03),
+			nextMajorVersion: "2019_06_25_EarlyAccess_ContentUpdate_ScorchedAcres",
 			bepInExVersion: "2.0.0"
 		),
 		new(
 			"2019_04_16_EarlyAccess_Patch",	
 			1280738030908307534,
 			new(2019, 04, 16),
+			nextMajorVersion: "2019_06_25_EarlyAccess_ContentUpdate_ScorchedAcres",
 			bepInExVersion: "2.0.0"
 		),
 		new(
 			"2019_05_21_EarlyAccess_Patch",	
 			3793891161392450065,
 			new(2019, 05, 21),
+			nextMajorVersion: "2019_06_25_EarlyAccess_ContentUpdate_ScorchedAcres",
 			bepInExVersion: "2.0.0"
 		),
 
@@ -49,12 +53,14 @@ public static class RoR2Versions
 			new(2019, 06, 25),
 			displayName: "Scorched Acres",
 			major: true,
+			nextMajorVersion: "2019_09_17_EarlyAccess_ContentUpdate_Skills2_0",
 			bepInExVersion: "2.0.0"
 		),
 		new(
 			"2019_07_03_EarlyAccess_Patch",
 			3670024595274968264,
 			new(2019, 07, 03),
+			nextMajorVersion: "2019_09_17_EarlyAccess_ContentUpdate_Skills2_0",
 			bepInExVersion: "2.0.0"
 		),
 
@@ -64,12 +70,14 @@ public static class RoR2Versions
 			new(2019, 09, 17),
 			displayName: "Skills 2.0",
 			major: true,
+			nextMajorVersion: "2019_12_17_EarlyAccess_ContentUpdate_HiddenRealms",
 			bepInExVersion: "2.0.0"
 		),
 		new(
 			"2019_10_10_EarlyAccess_Patch",
 			7012808837121522032,
 			new(2019, 10, 10),
+			nextMajorVersion: "2019_12_17_EarlyAccess_ContentUpdate_HiddenRealms",
 			bepInExVersion: "2.0.0"
 		),
 
@@ -79,6 +87,7 @@ public static class RoR2Versions
 			new(2019, 12, 17),
 			displayName: "Hidden Realms",
 			major: true,
+			nextMajorVersion: "2020_03_31_EarlyAccess_ContentUpdate_Artifacts",
 			bepInExVersion: "3.0.0"
 		),
 
@@ -88,12 +97,14 @@ public static class RoR2Versions
 			new(2020, 03, 31),
 			displayName: "Artifacts 2.0",
 			major: true,
+			nextMajorVersion: "2020_08_11_EarlyAccess_ContentUpdate_5",
 			bepInExVersion: "3.2.0"
 		),
 		new(
 			"2020_04_21_EarlyAccess_Patch",
 			6052191829405703267,
 			new(2020, 04, 21),
+			nextMajorVersion: "2020_08_11_EarlyAccess_ContentUpdate_5",
 			bepInExVersion: "3.2.0"
 		),
 
@@ -105,24 +116,28 @@ public static class RoR2Versions
 			new(2020, 08, 11),
 			displayName: "1.0 Launch",
 			major: true,
+			nextMajorVersion: "2021_03_25_Update_Anniversary",
 			bepInExVersion: "5.3.1"
 		),
 		new(
             "2020_08_13_EarlyAccess_ContentUpdate_5_Hotfix",
             9204909284884878595,
             new(2020, 08, 13),
+			nextMajorVersion: "2021_03_25_Update_Anniversary",
 			bepInExVersion: "5.3.1"
 		),
 		new(
             "2020_09_01_Patch_1_0_1_1",
             5049246425996249487,
             new(2020, 09, 01),
+			nextMajorVersion: "2021_03_25_Update_Anniversary",
 			bepInExVersion: "5.3.1"
 		),
 		new(
             "2020_11_03_Patch_1_0_2_0",
             3160519164886166204,
             new(2020, 11, 03),
+			nextMajorVersion: "2021_03_25_Update_Anniversary",
 			bepInExVersion: "5.3.1"
 		),
 		new(
@@ -130,6 +145,7 @@ public static class RoR2Versions
             8643078234309832101,
             new(2020, 12, 15),
             stable: true,
+			nextMajorVersion: "2021_03_25_Update_Anniversary",
 			bepInExVersion: "5.3.1"
 		),
 
@@ -139,12 +155,14 @@ public static class RoR2Versions
             new(2021, 03, 25),
             displayName: "Anniversary Update",
             major: true,
+			nextMajorVersion: "2022_03_01_DLC_01_SurvivorsOfTheVoid",
 			bepInExVersion: "5.4.1801"
 		),
 		new(
             "2021_04_12_Patch_1_1_1_2",
             4163843425391060582,
             new(2021, 04, 12),
+			nextMajorVersion: "2022_03_01_DLC_01_SurvivorsOfTheVoid",
 			bepInExVersion: "5.4.1801"
 		),
 		new(
@@ -153,6 +171,7 @@ public static class RoR2Versions
       		new(2021, 04, 20),
       		displayName: "Anniversary Update Stable",
       		stable: true,
+			nextMajorVersion: "2022_03_01_DLC_01_SurvivorsOfTheVoid",
 			bepInExVersion: "5.4.1801",
 			fixPluginTypesSerializationVersion: "1.0.1"
 		),
@@ -163,6 +182,7 @@ public static class RoR2Versions
             new(2022, 03, 01),
             displayName: "Survivors of the Void Update + DLC",
             major: true,
+			nextMajorVersion: "2023_11_06_Patch_7_5",
 			bepInExVersion: "5.4.2112",
 			fixPluginTypesSerializationVersion: "1.0.2"
 		),
@@ -170,6 +190,7 @@ public static class RoR2Versions
             "2022_03_11_Patch_1_2_2_0",
             226983827800243462,
             new(2022, 03, 11),
+			nextMajorVersion: "2023_11_06_Patch_7_5",
 			bepInExVersion: "5.4.2112",
 			fixPluginTypesSerializationVersion: "1.0.2"
 		),
@@ -177,6 +198,7 @@ public static class RoR2Versions
             "2022_04_19_Patch_1_2_3_0",
             4649272427595582012,
             new(2022, 04, 19),
+			nextMajorVersion: "2023_11_06_Patch_7_5",
 			bepInExVersion: "5.4.2112",
 			fixPluginTypesSerializationVersion: "1.0.2"
 		),
@@ -184,6 +206,7 @@ public static class RoR2Versions
             "2022_05_26_Patch_1_2_4_0",
             8981465225844154625,
             new(2022, 05, 26),
+			nextMajorVersion: "2023_11_06_Patch_7_5",
 			bepInExVersion: "5.4.2112",
 			fixPluginTypesSerializationVersion: "1.0.2"
 		),
@@ -193,6 +216,7 @@ public static class RoR2Versions
             new(2022, 09, 29),
             displayName: "SOTV Stable",
             stable: true,
+			nextMajorVersion: "2023_11_06_Patch_7_5",
 			bepInExVersion: "5.4.2112",
 			fixPluginTypesSerializationVersion: "1.0.2"
 		),
@@ -204,6 +228,8 @@ public static class RoR2Versions
             2538203695974683966,
             new(2023, 11, 06),
             displayName: "(unnamed) \"Comet\" Update",
+            stable: true,
+			nextMajorVersion: "2024_05_20_Update_Devotion",
 			bepInExVersion: "5.4.2113",
 			ror2BepInExPackVersion: "1.11.0",
 			fixPluginTypesSerializationVersion: "1.0.3"
@@ -216,6 +242,7 @@ public static class RoR2Versions
             displayName: "Devotion Update Stable",
             major: true,
             stable: true,
+			nextMajorVersion: "2024_08_27_DLC_02_SeekersOfTheStorm",
 			bepInExVersion: "5.4.2115",
 			ror2BepInExPackVersion: "1.16.0",
 			fixPluginTypesSerializationVersion: "1.0.4"
@@ -227,6 +254,7 @@ public static class RoR2Versions
             new(2024, 08, 27),
             displayName: "Seekers of the Storm Update + DLC",
             major: true,
+			nextMajorVersion: "Latest",
 			bepInExVersion: "5.4.2117",
 			ror2BepInExPackVersion: "1.20.0",
 			fixPluginTypesSerializationVersion: "1.0.4"
@@ -339,6 +367,7 @@ public struct RoR2Version(
     string identifier,
     long manifest,
     DateOnly? date,
+	string nextMajorVersion = null,
     string displayName = null,
     bool major = false,
     bool stable = false,
@@ -356,6 +385,8 @@ public struct RoR2Version(
     };
 
 	public string Identifier { get; set; } = identifier ?? "unknown";
+
+	public string NextMajorVersion { get; set; } = nextMajorVersion;
 
 	public long Manifest { get; set; } = manifest;
 
