@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 
 using DelugeManager;
+using Semver;
 
 internal class Program
 {
@@ -15,11 +16,11 @@ internal class Program
 
     static bool interactiveMode = false;
 
-    static readonly Dictionary<string, RoR2Profile> profiles = [];
+    internal static readonly Dictionary<string, ModProfile> profiles = [];
 
     static readonly List<string> instances = [];
 
-    const string DDVersion = "2.7.1";
+    const string DepotDownloaderVersion = "2.7.1";
 
     public static string Folder => Path.GetFullPath(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location));
 
@@ -470,7 +471,7 @@ internal class Program
 
                         var dir = Path.Combine(Folder, "profiles", path);
 
-                        var profile = new RoR2Profile {
+                        var profile = new ModProfile {
                             Name = name,
                             GameVersion = targetVersion,
                             LaunchArguments = launchArguments,
@@ -497,7 +498,7 @@ internal class Program
                         }
 
                         Directory.CreateDirectory(dir);
-                        File.WriteAllText(Path.Combine(dir, "profile.json"), JsonSerializer.Serialize(profile, RoR2Profile.SerializerOptions));
+                        File.WriteAllText(Path.Combine(dir, "profile.json"), JsonSerializer.Serialize(profile, ModProfile.SerializerOptions));
 
                         profiles.Add(path, profile);
 
@@ -536,7 +537,7 @@ internal class Program
                         profilesDirty = true;
                         CheckProfilesDirty();
 
-                        if(profiles.TryGetValue(_profile, out RoR2Profile profile))
+                        if(profiles.TryGetValue(_profile, out ModProfile profile))
                         {
                             if(!instances.Contains(profile.GameVersion))
                             {
@@ -581,6 +582,91 @@ internal class Program
                 );
 
                 profileCommand.AddCommand(launchCommand);
+            }
+
+            // add
+            {
+                var addCommand = new Command(name: "add", description: "Adds a mod to the specified profile");
+
+                var profileArg = new Argument<string>(name: "profile folder");
+                addCommand.AddArgument(profileArg);
+
+                var packageIdArg = new Argument<string>(name: "package ID", description: "package ID in PackageNamespace-PackageName format");
+                addCommand.AddArgument(packageIdArg);
+
+                var versionOption = new Option<string>(
+                    aliases: ["--version", "-v"],
+                    getDefaultValue: () => "latest"
+                ) {
+                    IsRequired = false,
+                };
+                addCommand.AddOption(versionOption);
+
+                addCommand.SetHandler(
+                    async (_profile, _package, _version) => {
+                        profilesDirty = true;
+                        CheckProfilesDirty();
+
+                        if(profiles.TryGetValue(_profile, out ModProfile profile))
+                        {
+                            if(_version == "latest")
+                                _version = null;
+
+                            var split = _package.Split('-');
+                            await PluginHandler.InstallPluginToProfile(_profile, split[1], split[0], _version, RoR2Versions.Versions.GetByID(profile.GameVersion));
+                            profilesDirty = true;
+                            CheckProfilesDirty();
+                        }
+                        else
+                        {
+                            Console.WriteLine($"The specified profile folder \"{_profile}\" does not exist");
+                            return;
+                        }
+                    },
+                    profileArg, packageIdArg, versionOption
+                );
+
+                profileCommand.AddCommand(addCommand);
+            }
+
+            // remove
+            {
+                var removeCommand = new Command(name: "remove", description: "Removes a mod from the specified profile");
+
+                var profileArg = new Argument<string>(name: "profile folder");
+                removeCommand.AddArgument(profileArg);
+
+                var packageIdArg = new Argument<string>(name: "package ID", description: "package ID in PackageNamespace-PackageName format");
+                removeCommand.AddArgument(packageIdArg);
+
+                removeCommand.SetHandler(
+                    (_profile, _package) => {
+                        profilesDirty = true;
+                        CheckProfilesDirty();
+
+                        if(profiles.TryGetValue(_profile, out ModProfile profile))
+                        {
+                            var bepDir = Path.Combine(Folder, "profiles", _profile, "BepInEx");
+                            if (Directory.Exists(Path.Combine(bepDir, "plugins", _package)))
+                                Directory.Delete(Path.Combine(bepDir, "plugins", _package), true);
+                            if (Directory.Exists(Path.Combine(bepDir, "patchers", _package)))
+                                Directory.Delete(Path.Combine(bepDir, "patchers", _package), true);
+                            if (Directory.Exists(Path.Combine(bepDir, "monomod", _package)))
+                                Directory.Delete(Path.Combine(bepDir, "monomod", _package), true);
+
+                            profilesDirty = true;
+                            CheckProfilesDirty();
+                        }
+                        else
+                        {
+                            Console.WriteLine($"The specified profile folder \"{_profile}\" does not exist");
+                            return;
+                        }
+                    },
+                    profileArg, packageIdArg
+                );
+
+                profileCommand.AddCommand(removeCommand);
             }
 
             rootCommand.AddCommand(profileCommand);
@@ -633,12 +719,7 @@ internal class Program
 
     static string GetProfileLaunchArguments(string profileName, bool relative = false)
     {
-        return
-        $"--doorstop-enabled true " +
-        (relative
-            ? $"--doorstop-target-assembly \"{Path.Combine(Folder, "profiles", profileName, "BepInEx", "core", "BepInEx.Preloader.dll")}\" "
-            : $"--doorstop-target-assembly \"{Path.Combine(".", "BepInEx", "core", "BepInEx.Preloader.dll")}\" ") +
-        $"{profiles[profileName].LaunchArguments ?? ""} ";
+        return $"--doorstop-enabled true --doorstop-target-assembly \"{Path.GetFullPath(Path.Combine(Folder, "profiles", profileName, "BepInEx", "core", "BepInEx.Preloader.dll"))}\" {profiles[profileName].LaunchArguments ?? ""}";
     }
 
     private static async Task<bool> GetGameVersion(string targetVersion)
@@ -670,7 +751,7 @@ internal class Program
                             $"-depot 632361 " +
                             (v.Manifest == -1 ? "" : $"-manifest {v.Manifest} ") +
                             $"-username {username} " +
-                            $"-dir \"{Path.Combine(Folder, "instances", v.Identifier)}\" ",
+                            $"-dir \"{Path.GetFullPath(Path.Combine(Folder, "instances", v.Identifier))}\" ",
                 UseShellExecute = true,
             }
         };
@@ -700,7 +781,7 @@ internal class Program
 
         var cacheInfo = File.ReadAllText(cachefile).Split(":::")[..2];
 
-        var cacheDate = DateTime.Parse(cacheInfo[0], null, cacheExpiryDateTimeStyles);
+        var cacheDate = DateTime.Parse(cacheInfo[0], null, cacheExpiryDateTimeStyles).ToUniversalTime();
 
         return (DateTime.UtcNow - cacheDate).TotalHours <= uint.Parse(cacheInfo[1]);
     }
@@ -720,10 +801,10 @@ internal class Program
 
     static async Task InstallBepInExPackForInstance(string targetGameVersion, string targetBepInExVersion)
     {
-        Console.WriteLine($"Pulling BepInExPack Package from Thunderstore.io...");
+        Console.WriteLine($"Downloading BepInExPack Package from {ThunderstoreApi.PackageProvider}...");
 
         {
-            var apiResponse = await ThunderstorePackageExperimental.GetPackageAsync("BepInExPack", "bbepis", targetBepInExVersion);
+            var apiResponse = await ThunderstoreApi.GetPackageAsync("BepInExPack", "bbepis", RoR2Versions.Versions[0], targetBepInExVersion);
 
             using var client = new HttpClient();
             using var s = await client.GetStreamAsync(apiResponse.DownloadUrl);
@@ -744,23 +825,25 @@ internal class Program
         Console.WriteLine($"BepInExPack installed successfully!");
     }
 
-    static async Task AddCoreModsToProfile(string profilePath, RoR2Profile profile)
+    static async Task AddCoreModsToProfile(string profilePath, ModProfile profile)
     {
+        Directory.CreateDirectory(Path.Combine(profilePath, "BepInEx", "plugins"));
+
         var gameVersion = RoR2Versions.Versions.GetByID(profile.GameVersion);
         var targetBepInExVersion = gameVersion.BepInExVersion;
 
         {
-            Console.WriteLine($"Pulling BepInExPack Package from Thunderstore.io...");
-            var apiResponse = await ThunderstorePackageExperimental.GetPackageAsync("BepInExPack", "bbepis", targetBepInExVersion);
+            Console.WriteLine($"Downloading bbepis-BepInExPack-{targetBepInExVersion} from {ThunderstoreApi.PackageProvider}...");
+            var apiResponse = await ThunderstoreApi.GetPackageAsync("BepInExPack", "bbepis", null, targetBepInExVersion);
 
             using var client = new HttpClient();
             using var s = await client.GetStreamAsync(apiResponse.DownloadUrl);
             using var ms = new MemoryStream();
             await s.CopyToAsync(ms);
 
-            Console.WriteLine($"Installing BepInExPack...");
+            Console.WriteLine($"Installing bbepis-BepInExPack-{targetBepInExVersion}...");
 
-            string outputPackageFolder = Path.Combine(Folder, "_data", "staging", targetBepInExVersion.GetHashCode().ToString());
+            string outputPackageFolder = Path.Combine(Folder, "_data", "staging", $"bbepis-BepInExPack-{targetBepInExVersion}");
             Directory.CreateDirectory(outputPackageFolder);
 
             ZipFile.ExtractToDirectory(ms, outputPackageFolder);
@@ -773,17 +856,17 @@ internal class Program
         // for versions that require FixPluginTypesSerialization
         if(gameVersion.FixPluginTypesSerializationVersion is not null)
         {
-            Console.WriteLine($"Pulling RiskofThunder-FixPluginTypesSerialization Package from Thunderstore.io...");
-            var apiResponse = await ThunderstorePackageExperimental.GetPackageAsync("FixPluginTypesSerialization", "RiskofThunder", gameVersion.FixPluginTypesSerializationVersion);
+            Console.WriteLine($"Downloading RiskofThunder-FixPluginTypesSerialization-{gameVersion.FixPluginTypesSerializationVersion} Package from {ThunderstoreApi.PackageProvider}...");
+            var apiResponse = await ThunderstoreApi.GetPackageAsync("FixPluginTypesSerialization", "RiskofThunder", null, gameVersion.FixPluginTypesSerializationVersion);
 
             using var client = new HttpClient();
             using var s = await client.GetStreamAsync(apiResponse.DownloadUrl);
             using var ms = new MemoryStream();
             await s.CopyToAsync(ms);
 
-            Console.WriteLine($"Installing RiskofThunder-FixPluginTypesSerialization...");
+            Console.WriteLine($"Installing RiskofThunder-FixPluginTypesSerialization-{gameVersion.FixPluginTypesSerializationVersion}...");
 
-            string outputPackageFolder = Path.Combine(Folder, "_data", "staging", gameVersion.FixPluginTypesSerializationVersion.GetHashCode().ToString());
+            string outputPackageFolder = Path.Combine(Folder, "_data", "staging", $"RiskofThunder-FixPluginTypesSerialization-{gameVersion.FixPluginTypesSerializationVersion}");
             Directory.CreateDirectory(outputPackageFolder);
 
             ZipFile.ExtractToDirectory(ms, outputPackageFolder);
@@ -796,17 +879,17 @@ internal class Program
         // for versions that require RoR2BepInExPack
         if(gameVersion.RoR2BepInExPackVersion is not null)
         {
-            Console.WriteLine($"Pulling RiskofThunder-RoR2BepInExPack Package from Thunderstore.io...");
-            var apiResponse = await ThunderstorePackageExperimental.GetPackageAsync("RoR2BepInExPack", "RiskofThunder", gameVersion.RoR2BepInExPackVersion);
+            Console.WriteLine($"Downloading RiskofThunder-RoR2BepInExPack-{gameVersion.RoR2BepInExPackVersion} Package from {ThunderstoreApi.PackageProvider}...");
+            var apiResponse = await ThunderstoreApi.GetPackageAsync("RoR2BepInExPack", "RiskofThunder", null, gameVersion.RoR2BepInExPackVersion);
 
             using var client = new HttpClient();
             using var s = await client.GetStreamAsync(apiResponse.DownloadUrl);
             using var ms = new MemoryStream();
             await s.CopyToAsync(ms);
 
-            Console.WriteLine($"Installing RiskofThunder-RoR2BepInExPack...");
+            Console.WriteLine($"Installing RiskofThunder-RoR2BepInExPack-{gameVersion.RoR2BepInExPackVersion}...");
 
-            string outputPackageFolder = Path.Combine(Folder, "_data", "staging", gameVersion.RoR2BepInExPackVersion.GetHashCode().ToString());
+            string outputPackageFolder = Path.Combine(Folder, "_data", "staging", $"RiskofThunder-RoR2BepInExPack-{gameVersion.RoR2BepInExPackVersion}");
             Directory.CreateDirectory(outputPackageFolder);
 
             ZipFile.ExtractToDirectory(ms, outputPackageFolder);
@@ -871,7 +954,7 @@ internal class Program
             }
 
             string downloadUrl =
-                $"https://github.com/SteamRE/DepotDownloader/releases/download/DepotDownloader_{DDVersion}/DepotDownloader-{os}-{arch.ToString().ToLower()}.zip";
+                $"https://github.com/SteamRE/DepotDownloader/releases/download/DepotDownloader_{DepotDownloaderVersion}/DepotDownloader-{os}-{arch.ToString().ToLower()}.zip";
 
             using var client = new HttpClient();
             using var s = await client.GetStreamAsync(downloadUrl);
@@ -887,21 +970,72 @@ internal class Program
         var profile = profiles[profileName];
 
         List<string> data = [
-            $"\"{Path.Join("..", "..", "instances", profile.GameVersion, "Risk of Rain 2")}\" {GetProfileLaunchArguments(profileName)}",
+            $"\"{Path.GetFullPath(Path.Join(Folder, "instances", profile.GameVersion, "Risk of Rain 2"))}\" {GetProfileLaunchArguments(profileName)}",
             ""
         ];
 
-        // just in case
         Directory.CreateDirectory(Path.Combine(Folder, "profiles", profileName));
 
         if(os == osWindows)
-            File.WriteAllText(Path.Combine(Folder, "profiles", profileName, "launch-game.bat"), string.Join("\r\n", data));
+            File.WriteAllText(Path.Combine(Folder, "profiles", profileName, "launch.bat"), string.Join("\r\n", data));
 
         if(os == osLinux)
-            File.WriteAllText(Path.Combine(Folder, "profiles", profileName, "launch-game.sh"), string.Join("\n", data));
+            File.WriteAllText(Path.Combine(Folder, "profiles", profileName, "launch.sh"), string.Join("\n", data));
     }
 
-    private static void CheckProfilesDirty(bool log = false)
+    public static async Task<Stream> ReadOrDownloadCache(string fileName, string requestUrl, string friendlyName)
+    {
+        var ms = new MemoryStream();
+
+        var cachefile = Path.Combine(fileName);
+        var cacheInfo = Path.Combine(Path.ChangeExtension(fileName, ".cache"));
+
+        bool cacheAvailable = false;
+        if(ValidateCache(cacheInfo))
+        {
+            cacheAvailable = true;
+            using var s = File.OpenRead(cachefile);
+            await s.CopyToAsync(ms);
+        }
+        else
+        {
+            File.Delete(cachefile);
+            File.Delete(cacheInfo);
+        }
+
+        if(!cacheAvailable)
+        {
+            string message = $"Downloading {friendlyName}...";
+            Console.Write($"{message} 0.00%  ");
+
+            using var client = new HttpClient();
+            client.Timeout = TimeSpan.FromMinutes(5);
+
+            using var file = new FileStream(cachefile, FileMode.Create);
+
+            Progress<DownloadProgressInfo> progress = new(info => {
+                for(int i = 0; i < message.Length + 8; i++)
+                    Console.Write("\b \b");
+
+                string percent = $" {(float)info.TotalBytes / info.Length * 100f:D2}%";
+                Console.Write($"{message}{percent}");
+
+                for (int i = 0; i < 8 - percent.Length; i++)
+                    Console.Write(' ');
+            });
+
+            await client.DownloadAsync($"{ThunderstoreApi.PackageProvider}/{requestUrl}", file, progress);
+            Console.WriteLine();
+
+            await File.WriteAllTextAsync(cacheInfo, $"{DateTime.UtcNow}:::24");
+
+            await file.CopyToAsync(ms);
+        }
+
+        return ms;
+    }
+
+    private static async void CheckProfilesDirty(bool log = false)
     {
         instances.Clear();
         foreach(var item in Directory.EnumerateDirectories(Path.Combine(Folder, "instances")))
@@ -926,9 +1060,10 @@ internal class Program
                     if(log)
                         Console.WriteLine($"Reading profile \"{item}\"...");
 
-                    var profile = JsonSerializer.Deserialize<RoR2Profile>(File.ReadAllText(path), RoR2Profile.SerializerOptions);
+                    var profile = JsonSerializer.Deserialize<ModProfile>(File.ReadAllText(path), ModProfile.SerializerOptions);
 
                     int plugins = 0;
+                    Directory.CreateDirectory(Path.Combine(item, "BepInEx", "plugins"));
                     foreach(var fullPath in Directory.EnumerateDirectories(Path.Combine(item, "BepInEx", "plugins")))
                     {
                         if(!Directory.EnumerateFileSystemEntries(fullPath).Any())
@@ -937,7 +1072,7 @@ internal class Program
                         string manifestPath = Path.Combine(fullPath, "manifest.json");
                         if(File.Exists(manifestPath))
                         {
-                            profile.Mods.Add(JsonSerializer.Deserialize<RoR2Plugin>(File.ReadAllText(manifestPath), RoR2Profile.SerializerOptions));
+                            profile.Mods.Add(JsonSerializer.Deserialize<RoR2Plugin>(File.ReadAllText(manifestPath), ModProfile.SerializerOptions));
                             plugins++;
                         }
 
@@ -948,6 +1083,7 @@ internal class Program
                     }
 
                     int patchers = 0;
+                    Directory.CreateDirectory(Path.Combine(item, "BepInEx", "patchers"));
                     foreach(var fullPath in Directory.EnumerateDirectories(Path.Combine(item, "BepInEx", "patchers")))
                     {
                         if(!Directory.EnumerateFileSystemEntries(fullPath).Any())
@@ -964,6 +1100,8 @@ internal class Program
                     profiles.Add(name, profile);
 
                     AddShortcutToProfile(name);
+
+                    await File.WriteAllTextAsync(path, JsonSerializer.Serialize(profile, ModProfile.SerializerOptions));
                 }
                 catch (Exception e)
                 {

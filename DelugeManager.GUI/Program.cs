@@ -22,6 +22,10 @@ class Program
             // Center window in the middle of the screen
             .Center()
             .RegisterCustomSchemeHandler("app", SchemeHandler.HandleMessage)
+            .SetJavascriptClipboardAccessEnabled(true)
+            .SetSmoothScrollingEnabled(true)
+            .SetContextMenuEnabled(false)
+            .SetFileSystemAccessEnabled(true)
             // Most event handlers can be registered after the
             // PhotinoWindow was instantiated by calling a registration 
             // method like the following RegisterWebMessageReceivedHandler.

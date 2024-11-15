@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace DelugeManager;
 
-public class RoR2Profile
+public class ModProfile
 {
     public static JsonSerializerOptions SerializerOptions { get; } = new()
     {
@@ -12,13 +12,14 @@ public class RoR2Profile
         },
         AllowTrailingCommas = true,
         ReadCommentHandling = JsonCommentHandling.Skip,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
         WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
     };
 
     public IList<RoR2Plugin> Mods { get; } = [];
 
-    public string GameVersion { get; set; } = RoR2Versions.Latest.Identifier;
+    public string GameVersion { get; set; }
 
     public string Name { get; set; }
 
